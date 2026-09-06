@@ -84,4 +84,15 @@ describe('Terminal Formatter - Neutralisation des séquences de contrôle (CWE-1
     expect(term).not.toContain('\x1b]52');
     expect(term).not.toContain('\x1b]8');
   });
+
+  it('traite les séquences non terminées en O(N) sans blocage ni ReDoS', () => {
+    // Séquence OSC non terminée avec une grande charge utile
+    const largeUnterminated = '\x1b]' + 'A'.repeat(50000);
+    const start = performance.now();
+    const clean = sanitizeTerminalText(largeUnterminated);
+    const duration = performance.now() - start;
+
+    expect(clean).toBe('');
+    expect(duration).toBeLessThan(50); // Doit s'exécuter en quelques millisecondes
+  });
 });
