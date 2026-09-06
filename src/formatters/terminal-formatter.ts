@@ -51,8 +51,8 @@ export function sanitizeTerminalText(input: string): string {
         continue;
       }
 
-      // OSC (]), DCS (P), PM (^), APC (_)
-      if (next === 0x5d || next === 0x50 || next === 0x5e || next === 0x5f) {
+      // OSC (]), DCS (P), SOS (X), PM (^), APC (_)
+      if (next === 0x5d || next === 0x50 || next === 0x58 || next === 0x5e || next === 0x5f) {
         i++;
         while (i < len) {
           const c = input.charCodeAt(i);
@@ -91,8 +91,8 @@ export function sanitizeTerminalText(input: string): string {
       continue;
     }
 
-    // OSC (\x9d), DCS (\x90), PM (\x9e), APC (\x9f) 8-bit
-    if (code === 0x9d || code === 0x90 || code === 0x9e || code === 0x9f) {
+    // OSC (\x9d), DCS (\x90), SOS (\x98), PM (\x9e), APC (\x9f) 8-bit
+    if (code === 0x9d || code === 0x90 || code === 0x98 || code === 0x9e || code === 0x9f) {
       i++;
       while (i < len) {
         const c = input.charCodeAt(i);

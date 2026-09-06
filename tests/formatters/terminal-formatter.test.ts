@@ -95,4 +95,22 @@ describe('Terminal Formatter - Neutralisation des séquences de contrôle (CWE-1
     expect(clean).toBe('');
     expect(duration).toBeLessThan(50); // Doit s'exécuter en quelques millisecondes
   });
+
+  it('consomme les autres ouvertures de chaînes de contrôle non terminées', () => {
+    for (const opener of ['\x1bP', '\x1bX', '\x1b^', '\x1b_', '\x90', '\x98', '\x9d', '\x9e', '\x9f']) {
+      expect(sanitizeTerminalText(opener + 'A'.repeat(10000))).toBe('');
+    }
+  });
+
+  it('consomme les chaînes de contrôle SOS terminées', () => {
+    // 7-bit SOS avec ST 7-bit et BEL
+    expect(sanitizeTerminalText('avant\x1bXpayload_sos\x1b\\apres')).toBe('avantapres');
+    expect(sanitizeTerminalText('avant\x1bXpayload_sos\x07apres')).toBe('avantapres');
+    // 8-bit SOS avec ST 8-bit (\x9c)
+    expect(sanitizeTerminalText('avant\x98payload_sos\x9capres')).toBe('avantapres');
+  });
+
+  it('préserve les sauts de ligne et les tabulations', () => {
+    expect(sanitizeTerminalText('a\nb\tc\rd')).toBe('a\nb\tcd');
+  });
 });
