@@ -24,6 +24,19 @@ describe('Terminal Formatter - Neutralisation des séquences de contrôle (CWE-1
     expect(clean).toBe('Attention texte rouge ');
   });
 
+  it('supprime les retours chariot (\\r) et les commandes de contrôle C1 8-bit (\\x80-\\x9f)', () => {
+    // \r pour écraser une ligne précédente, \x9b pour CSI 8-bit, \x9d pour OSC 8-bit
+    const malicious = 'Texte initial\rÉcrasé\x9b31mrouge\x9d52;c;leak\x07fin\x80\x9f';
+    const clean = sanitizeTerminalText(malicious);
+
+    expect(clean).not.toContain('\r');
+    expect(clean).not.toContain('\x9b');
+    expect(clean).not.toContain('\x9d');
+    expect(clean).not.toContain('\x80');
+    expect(clean).not.toContain('\x9f');
+    expect(clean).toBe('Texte initialÉcrasérougefin');
+  });
+
   it('neutralise les séquences dans formatDiffHunk et formatTerminal', () => {
     const maliciousDiff = '@@ -1,3 +1,3 @@\n- old\n+ new \x1b]52;c;evil\x07';
     const rendered = formatDiffHunk(maliciousDiff);

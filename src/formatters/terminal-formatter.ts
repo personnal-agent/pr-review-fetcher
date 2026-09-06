@@ -26,16 +26,16 @@ const ANSI = {
 export function sanitizeTerminalText(input: string): string {
   if (!input) return '';
   return input
-    // Séquences OSC (Operating System Command, liens \x1b]8;;url\x07 ou presse-papiers \x1b]52;...\x07)
-    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '')
-    // Séquences DCS, APC, PM
-    .replace(/\x1b[P^_][\s\S]*?(?:\x07|\x1b\\)/g, '')
-    // Séquences CSI (Control Sequence Introducer, styles/couleurs/curseur \x1b[...)
-    .replace(/\x1b\[[0-9:;<=>?]*[ -/]*[@-~]/g, '')
-    // Autres séquences d'échappement 2-octets
+    // Séquences OSC 7-bit et 8-bit C1 (Operating System Command, liens \x1b] ou \x9d...)
+    .replace(/(?:\x1b\]|\x9d)[\s\S]*?(?:\x07|\x1b\\|\x9c)/g, '')
+    // Séquences DCS, APC, PM 7-bit et 8-bit
+    .replace(/(?:\x1b[P^_]|[\x90\x9e\x9f])[\s\S]*?(?:\x07|\x1b\\|\x9c)/g, '')
+    // Séquences CSI 7-bit et 8-bit (\x1b[ ou \x9b)
+    .replace(/(?:\x1b\[|\x9b)[0-9:;<=>?]*[ -/]*[@-~]/g, '')
+    // Autres séquences d'échappement 2-octets 7-bit
     .replace(/\x1b[@-Z\\-_]/g, '')
-    // Caractères de contrôle non imprimables (conserver \n et \t)
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+    // Caractères de contrôle C0 et C1 (conserver \n et \t, neutraliser \r (\x0d), \x00-\x08, \x0b-\x1f, \x7f-\x9f)
+    .replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, '');
 }
 
 function formatSeverityBadge(severity?: string): string {
