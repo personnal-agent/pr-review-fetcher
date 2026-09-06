@@ -111,9 +111,8 @@ function parseCLIArgs(args: string[]): CLIOptions {
 }
 
 export async function main(): Promise<void> {
-  const options = parseCLIArgs(process.argv.slice(2));
-
   try {
+    const options = parseCLIArgs(process.argv.slice(2));
     const target = resolvePRTarget(options.target);
 
     // Initialisation du client GitHub

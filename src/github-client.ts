@@ -106,16 +106,33 @@ export class GitHubClient {
       const reset = res.headers.get('x-ratelimit-reset');
       const retryAfter = res.headers.get('retry-after');
 
-      // Gestion des quotas primaires et secondaires (429 ou 403 épuisé)
-      if ((res.status === 403 && remaining === '0') || res.status === 429) {
+      let responseBodyMessage = '';
+      try {
+        const data = (await res.json()) as { message?: string };
+        if (data && typeof data.message === 'string') {
+          responseBodyMessage = data.message;
+        }
+      } catch {
+        // Ignorer si la réponse n'est pas du JSON valide
+      }
+
+      const isSecondaryRateLimit =
+        res.status === 403 &&
+        (Boolean(retryAfter) ||
+          responseBodyMessage.toLowerCase().includes('secondary rate limit') ||
+          responseBodyMessage.toLowerCase().includes('abuse detection'));
+
+      // Gestion des quotas primaires et secondaires (429 ou 403 épuisé / secondary rate limit)
+      if ((res.status === 403 && (remaining === '0' || isSecondaryRateLimit)) || res.status === 429) {
         const delayMsg = retryAfter
           ? `veuillez réessayer dans ${retryAfter} seconde(s)`
           : reset
           ? `réinitialisation à ${new Date(parseInt(reset, 10) * 1000).toLocaleTimeString()}`
           : 'bientôt';
 
+        const rateType = isSecondaryRateLimit || res.status === 429 ? 'secondaire ' : '';
         throw new Error(
-          `Limite de requêtes GitHub API atteinte (${delayMsg}).\n` +
+          `Limite de requêtes GitHub API ${rateType}atteinte (${delayMsg}).\n` +
           `Astuce : Fournissez un token d'accès avec l'option --token <token> ou connectez-vous avec 'gh auth login' pour bénéficier de 5000 requêtes/heure.`
         );
       }
@@ -132,13 +149,8 @@ export class GitHubClient {
       }
 
       let errorMsg = `Erreur GitHub API (${res.status} ${res.statusText})`;
-      try {
-        const data = (await res.json()) as { message?: string };
-        if (data.message) {
-          errorMsg += `: ${data.message}`;
-        }
-      } catch {
-        // Ignorer
+      if (responseBodyMessage) {
+        errorMsg += `: ${responseBodyMessage}`;
       }
       throw new Error(errorMsg);
     }

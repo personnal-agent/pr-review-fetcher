@@ -6,6 +6,8 @@ describe('DeepSource Parser - Détection, Sévérité et Nettoyage HTML', () => 
     it('identifie deepsource par son login ou marqueur', () => {
       expect(isDeepSourceComment('deepsource-io[bot]', 'Issue found')).toBe(true);
       expect(isDeepSourceComment('deepsource-autofix[bot]', 'Issue found')).toBe(true);
+      expect(isDeepSourceComment('deepsource-fan', 'Issue found')).toBe(false);
+      expect(isDeepSourceComment('not-deepsource', 'Issue found')).toBe(false);
       expect(
         isDeepSourceComment('generic-bot', '<!-- DeepSource: id=123 -->', true)
       ).toBe(true);

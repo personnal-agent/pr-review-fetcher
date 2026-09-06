@@ -1,8 +1,17 @@
 import { BotMetadata } from '../types';
 
+const DEEPSOURCE_LOGINS = new Set([
+  'deepsource-io',
+  'deepsource-io[bot]',
+  'deepsource',
+  'deepsource[bot]',
+  'deepsource-autofix',
+  'deepsource-autofix[bot]'
+]);
+
 export function isDeepSourceComment(author: string, body: string, isBot = false): boolean {
   const authorLower = author.toLowerCase();
-  if (authorLower.includes('deepsource')) {
+  if (DEEPSOURCE_LOGINS.has(authorLower)) {
     return true;
   }
   if (

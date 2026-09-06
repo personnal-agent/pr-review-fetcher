@@ -34,8 +34,8 @@ describe('Diff Hunk Parser - Extraction du contexte de code et découpage focali
     expect(focusedDiffHunk).toContain('def _find_trusted_bin(name: str, fallback: str | None = None) -> str | None:');
     expect(focusedDiffHunk).toContain('resolved = shutil.which(name, path=os.pathsep.join(_TRUSTED_BIN_DIRS))');
 
-    // L'en-tête doit refléter le découpage
-    expect(focusedDiffHunk).toMatch(/^@@ -63,0 \+73,4 @@/);
+    // L'en-tête doit refléter le découpage (avec oldStart ajusté à la ligne précédente car oldLen=0)
+    expect(focusedDiffHunk).toMatch(/^@@ -62,0 \+73,4 @@/);
 
     // Le codeContext doit être propre et comporter les numéros 73 à 76
     const lines = codeContext.split('\n');

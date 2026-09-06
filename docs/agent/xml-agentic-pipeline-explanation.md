@@ -43,7 +43,7 @@ Les données de ciblage (auteur, sévérité, lignes) sont placées dans des bal
 
 Trois raisons motivent cette organisation :
 
-1. **Séparation claire entre instructions et données :** Le balisage XML isole les commentaires tiers. L'agent ne risque pas de prendre un commentaire de review pour une consigne directe de son utilisateur.
+1. **Structuration claire entre données et instructions :** Le balisage XML aide l'agent à distinguer les métadonnées et le contenu des commentaires externes de ses instructions système. Bien que les délimiteurs XML ne constituent pas à eux seuls une frontière étanche contre les attaques par injection indirecte de prompt (qui requièrent une défense en profondeur au niveau du prompt système de l'agent), ils apportent un formatage sémantique explicite qui réduit les ambiguïtés d'interprétation.
 2. **Diffs préservés à l'identique :** En JSON, chaque retour à la ligne ou caractère spécial doit être échappé (`\n`, `\"`, `\\`), ce qui rend les gros patches fragiles. Avec CDATA, le patch reste du texte brut direct.
 3. **Repérage fiable par le modèle :** Les LLM actuels identifient nettement les balises fermantes (`</review_comment>`), ce qui permet de traiter les retours un par un sans déborder sur le suivant.
 

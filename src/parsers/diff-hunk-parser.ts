@@ -14,7 +14,7 @@ export interface ParsedDiffLine {
 }
 
 function normalizeDiffHunk(raw: string): string {
-  return raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  return raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/^\n+|\n+$/g, '');
 }
 
 /**
@@ -205,8 +205,8 @@ export function extractCodeContext(
   const first = selected[0];
   const oldLen = selected.filter(x => x.type === '-' || x.type === ' ').length;
   const newLen = selected.filter(x => x.type === '+' || x.type === ' ').length;
-  const sliceOldStart = first.oldCursor;
-  const sliceNewStart = first.newCursor;
+  const sliceOldStart = oldLen === 0 ? Math.max(0, first.oldCursor - 1) : first.oldCursor;
+  const sliceNewStart = newLen === 0 ? Math.max(0, first.newCursor - 1) : first.newCursor;
 
   const newHeader = `@@ -${sliceOldStart},${oldLen} +${sliceNewStart},${newLen} @@`;
   const focusedDiffHunk = [newHeader, ...selected.map(x => x.raw)].join('\n');

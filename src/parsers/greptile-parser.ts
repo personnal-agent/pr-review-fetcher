@@ -1,8 +1,16 @@
 import { BotMetadata } from '../types';
 
+const GREPTILE_LOGINS = new Set([
+  'greptile',
+  'greptile[bot]',
+  'greptile-apps',
+  'greptile-apps[bot]',
+  'my-greptile-integration'
+]);
+
 export function isGreptileComment(author: string, body: string, isBot = false): boolean {
   const authorLower = author.toLowerCase();
-  if (authorLower.includes('greptile') || authorLower === 'greptile-apps') {
+  if (GREPTILE_LOGINS.has(authorLower)) {
     return true;
   }
   // Détection par marqueur de corps uniquement si le compte est reconnu comme bot

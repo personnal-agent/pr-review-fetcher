@@ -19,6 +19,8 @@ describe('Greptile Parser - Détection et Extraction Forensique', () => {
     it('ignore les commentaires normaux sans marqueur greptile', () => {
       expect(isGreptileComment('alice', 'LGTM!')).toBe(false);
       expect(isGreptileComment('bob', 'P1 is high priority', true)).toBe(false);
+      expect(isGreptileComment('greptile-fan', 'commentaire quelconque')).toBe(false);
+      expect(isGreptileComment('my-greptile', 'commentaire quelconque')).toBe(false);
     });
   });
 

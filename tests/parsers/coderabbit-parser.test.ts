@@ -6,6 +6,14 @@ describe('CodeRabbit Parser - Immunité et Détection de Sévérité', () => {
     it('identifie coderabbit par son login', () => {
       expect(isCodeRabbitComment('coderabbitai[bot]', 'Review content')).toBe(true);
       expect(isCodeRabbitComment('coderabbitai', 'Review content')).toBe(true);
+      expect(isCodeRabbitComment('coderabbit', 'Review content')).toBe(true);
+      expect(isCodeRabbitComment('coderabbit[bot]', 'Review content')).toBe(true);
+    });
+
+    it('rejette les logins humains ressemblants (ex: coderabbit-fan)', () => {
+      expect(isCodeRabbitComment('coderabbit-fan', 'Review content')).toBe(false);
+      expect(isCodeRabbitComment('not-coderabbit', 'Review content')).toBe(false);
+      expect(isCodeRabbitComment('coderabbitai-enthusiast', 'Review content')).toBe(false);
     });
 
     it('identifie le marqueur Commitable suggestion uniquement si isBot est vrai', () => {

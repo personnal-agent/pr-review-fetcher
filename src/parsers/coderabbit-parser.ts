@@ -1,8 +1,15 @@
 import { BotMetadata } from '../types';
 
+const CODERABBIT_LOGINS = new Set([
+  'coderabbitai',
+  'coderabbitai[bot]',
+  'coderabbit',
+  'coderabbit[bot]'
+]);
+
 export function isCodeRabbitComment(author: string, body: string, isBot = false): boolean {
   const authorLower = author.toLowerCase();
-  if (authorLower.includes('coderabbit')) {
+  if (CODERABBIT_LOGINS.has(authorLower)) {
     return true;
   }
   if (isBot && (body.includes('coderabbitai') || body.includes('<!-- Commitable suggestion -->'))) {

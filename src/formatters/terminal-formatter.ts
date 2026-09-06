@@ -19,9 +19,29 @@ const ANSI = {
   gray: '\x1b[90m'
 };
 
+/**
+ * Neutralise les séquences d'échappement terminal (CSI, OSC, APC, etc.)
+ * et les caractères de contrôle non imprimables (CWE-150) provenant de données de PR non fiables.
+ */
+export function sanitizeTerminalText(input: string): string {
+  if (!input) return '';
+  return input
+    // Séquences OSC (Operating System Command, liens \x1b]8;;url\x07 ou presse-papiers \x1b]52;...\x07)
+    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '')
+    // Séquences DCS, APC, PM
+    .replace(/\x1b[P^_][\s\S]*?(?:\x07|\x1b\\)/g, '')
+    // Séquences CSI (Control Sequence Introducer, styles/couleurs/curseur \x1b[...)
+    .replace(/\x1b\[[0-9:;<=>?]*[ -/]*[@-~]/g, '')
+    // Autres séquences d'échappement 2-octets
+    .replace(/\x1b[@-Z\\-_]/g, '')
+    // Caractères de contrôle non imprimables (conserver \n et \t)
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+}
+
 function formatSeverityBadge(severity?: string): string {
   if (!severity) return '';
-  const s = severity.toUpperCase();
+  const cleanSev = sanitizeTerminalText(severity);
+  const s = cleanSev.toUpperCase();
   if (s === 'P0' || s === 'P1') {
     return `${ANSI.bgRed}${ANSI.white}${ANSI.bold} ${s} CRITIQUE ${ANSI.reset}`;
   }
@@ -35,24 +55,26 @@ function formatSeverityBadge(severity?: string): string {
 }
 
 function formatAuthorBadge(comment: ReviewComment): string {
+  const cleanAuthor = sanitizeTerminalText(comment.author);
   const botName = comment.botMetadata?.botName;
   if (botName === 'greptile') {
-    return `${ANSI.cyan}${ANSI.bold}[${comment.author} (Greptile)]${ANSI.reset}`;
+    return `${ANSI.cyan}${ANSI.bold}[${cleanAuthor} (Greptile)]${ANSI.reset}`;
   }
   if (botName === 'coderabbit') {
-    return `${ANSI.magenta}${ANSI.bold}[${comment.author} (CodeRabbit)]${ANSI.reset}`;
+    return `${ANSI.magenta}${ANSI.bold}[${cleanAuthor} (CodeRabbit)]${ANSI.reset}`;
   }
   if (botName === 'deepsource') {
-    return `${ANSI.blue}${ANSI.bold}[${comment.author} (DeepSource)]${ANSI.reset}`;
+    return `${ANSI.blue}${ANSI.bold}[${cleanAuthor} (DeepSource)]${ANSI.reset}`;
   }
   if (comment.isBot) {
-    return `${ANSI.yellow}[${comment.author} (Bot)]${ANSI.reset}`;
+    return `${ANSI.yellow}[${cleanAuthor} (Bot)]${ANSI.reset}`;
   }
-  return `${ANSI.green}[${comment.author}]${ANSI.reset}`;
+  return `${ANSI.green}[${cleanAuthor}]${ANSI.reset}`;
 }
 
 export function formatDiffHunk(diffHunk: string, side?: string): string {
-  const lines = diffHunk.split('\n');
+  const cleanHunk = sanitizeTerminalText(diffHunk);
+  const lines = cleanHunk.split('\n');
   let currentOldLine = 0;
   let currentNewLine = 0;
   const isLeft = side === 'LEFT';
@@ -109,8 +131,9 @@ function formatModifications(mods: CodeModification[]): string {
   const out: string[] = [];
 
   for (const mod of mods) {
+    const cleanContent = sanitizeTerminalText(mod.content);
     const header = `  ┌── ${ANSI.bold}${ANSI.green}MODIFICATION RECOMMANDÉE (${mod.type})${ANSI.reset} ─────────────────────────────┐`;
-    const lines = mod.content.split('\n').map(l => `  │ ${ANSI.green}${l}${ANSI.reset}`);
+    const lines = cleanContent.split('\n').map(l => `  │ ${ANSI.green}${l}${ANSI.reset}`);
     const footer = `  └─────────────────────────────────────────────────────────────────┘`;
     out.push([header, ...lines, footer].join('\n'));
   }
@@ -125,13 +148,13 @@ export function formatTerminal(report: PRReviewReport): string {
   const lineBar = '═'.repeat(70);
   out.push(`${ANSI.cyan}${lineBar}${ANSI.reset}`);
   out.push(
-    `${ANSI.bold}Pull Request #${report.target.pullNumber} : ${report.title}${ANSI.reset}`
+    `${ANSI.bold}Pull Request #${report.target.pullNumber} : ${sanitizeTerminalText(report.title)}${ANSI.reset}`
   );
   out.push(
-    `${ANSI.dim}Dépôt : ${report.target.owner}/${report.target.repo} | Auteur : ${report.author} | Branche : ${report.head} -> ${report.base}${ANSI.reset}`
+    `${ANSI.dim}Dépôt : ${sanitizeTerminalText(report.target.owner)}/${sanitizeTerminalText(report.target.repo)} | Auteur : ${sanitizeTerminalText(report.author)} | Branche : ${sanitizeTerminalText(report.head)} -> ${sanitizeTerminalText(report.base)}${ANSI.reset}`
   );
   out.push(
-    `${ANSI.dim}URL : ${report.target.url} | Total commentaires : ${report.totalComments}${ANSI.reset}`
+    `${ANSI.dim}URL : ${sanitizeTerminalText(report.target.url)} | Total commentaires : ${report.totalComments}${ANSI.reset}`
   );
   out.push(`${ANSI.cyan}${lineBar}${ANSI.reset}\n`);
 
@@ -144,14 +167,15 @@ export function formatTerminal(report: PRReviewReport): string {
   for (let i = 0; i < report.comments.length; i++) {
     const c = report.comments[i];
     const linesRange = c.startLine && c.startLine !== c.line ? `${c.startLine}-${c.line}` : `${c.line ?? 'N/A'}`;
-    const fileHeader = `\n${ANSI.bold}📁 ${c.path} (ligne ${linesRange})${ANSI.reset}`;
+    const cleanPath = sanitizeTerminalText(c.path);
+    const fileHeader = `\n${ANSI.bold}📁 ${cleanPath} (ligne ${linesRange})${ANSI.reset}`;
     const authorAndBadge = `${formatAuthorBadge(c)} ${formatSeverityBadge(c.botMetadata?.severity)}`;
 
     out.push(`${fileHeader}`);
     out.push(`  ${authorAndBadge}`);
 
     if (c.botMetadata?.title) {
-      out.push(`  ${ANSI.bold}${c.botMetadata.title}${ANSI.reset}`);
+      out.push(`  ${ANSI.bold}${sanitizeTerminalText(c.botMetadata.title)}${ANSI.reset}`);
     }
 
     if (c.diffHunk || c.codeContext) {
@@ -166,7 +190,7 @@ export function formatTerminal(report: PRReviewReport): string {
 
     if (c.explanation) {
       out.push(`\n  ${ANSI.dim}--- Explication ---${ANSI.reset}`);
-      const indentedExp = c.explanation
+      const indentedExp = sanitizeTerminalText(c.explanation)
         .split('\n')
         .map(l => `  ${l}`)
         .join('\n');
@@ -176,7 +200,7 @@ export function formatTerminal(report: PRReviewReport): string {
     if (c.botMetadata?.artifacts && c.botMetadata.artifacts.length > 0) {
       out.push(`\n  ${ANSI.dim}--- Artefacts ---${ANSI.reset}`);
       for (const art of c.botMetadata.artifacts) {
-        out.push(`  • ${ANSI.yellow}${art}${ANSI.reset}`);
+        out.push(`  • ${ANSI.yellow}${sanitizeTerminalText(art)}${ANSI.reset}`);
       }
     }
 
@@ -184,7 +208,7 @@ export function formatTerminal(report: PRReviewReport): string {
       out.push('\n' + formatModifications(c.modifications));
     }
 
-    out.push(`${ANSI.gray}  Lien : ${c.url}${ANSI.reset}`);
+    out.push(`${ANSI.gray}  Lien : ${sanitizeTerminalText(c.url)}${ANSI.reset}`);
     out.push(`${ANSI.gray}${'-'.repeat(70)}${ANSI.reset}`);
   }
 

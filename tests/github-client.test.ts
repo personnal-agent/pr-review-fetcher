@@ -84,7 +84,28 @@ describe('GitHub Client - Authentification, Quotas et Erreurs', () => {
 
       const client = new GitHubClient('token');
       await expect(client.getPullRequest(mockTarget)).rejects.toThrow(
-        /Limite de requêtes GitHub API atteinte/
+        /Limite de requêtes GitHub API/
+      );
+    });
+
+    it('gère les codes HTTP 403 avec message de limite secondaire et remaining > 0', async () => {
+      globalThis.fetch = mock(async () => {
+        return new Response(
+          JSON.stringify({ message: 'You have exceeded a secondary rate limit. Please wait a few minutes.' }),
+          {
+            status: 403,
+            statusText: 'Forbidden',
+            headers: {
+              'x-ratelimit-remaining': '4990',
+              'retry-after': '60'
+            }
+          }
+        );
+      }) as unknown as typeof fetch;
+
+      const client = new GitHubClient('token');
+      await expect(client.getPullRequest(mockTarget)).rejects.toThrow(
+        /Limite de requêtes GitHub API secondaire atteinte \(veuillez réessayer dans 60 seconde\(s\)\)/
       );
     });
   });
