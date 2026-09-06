@@ -24,6 +24,19 @@ describe('Terminal Formatter - Neutralisation des séquences de contrôle (CWE-1
     expect(clean).toBe('Attention texte rouge ');
   });
 
+  it('supprime les retours chariot (\\r) et les commandes de contrôle C1 8-bit (\\x80-\\x9f)', () => {
+    // \r pour écraser une ligne précédente, \x9b pour CSI 8-bit, \x9d pour OSC 8-bit
+    const malicious = 'Texte initial\rÉcrasé\x9b31mrouge\x9d52;c;leak\x07fin\x80\x9f';
+    const clean = sanitizeTerminalText(malicious);
+
+    expect(clean).not.toContain('\r');
+    expect(clean).not.toContain('\x9b');
+    expect(clean).not.toContain('\x9d');
+    expect(clean).not.toContain('\x80');
+    expect(clean).not.toContain('\x9f');
+    expect(clean).toBe('Texte initialÉcrasérougefin');
+  });
+
   it('neutralise les séquences dans formatDiffHunk et formatTerminal', () => {
     const maliciousDiff = '@@ -1,3 +1,3 @@\n- old\n+ new \x1b]52;c;evil\x07';
     const rendered = formatDiffHunk(maliciousDiff);
@@ -70,5 +83,34 @@ describe('Terminal Formatter - Neutralisation des séquences de contrôle (CWE-1
     // Vérifier qu'aucune séquence OSC malveillante n'a survécu
     expect(term).not.toContain('\x1b]52');
     expect(term).not.toContain('\x1b]8');
+  });
+
+  it('traite les séquences non terminées en O(N) sans blocage ni ReDoS', () => {
+    // Séquence OSC non terminée avec une grande charge utile
+    const largeUnterminated = '\x1b]' + 'A'.repeat(50000);
+    const start = performance.now();
+    const clean = sanitizeTerminalText(largeUnterminated);
+    const duration = performance.now() - start;
+
+    expect(clean).toBe('');
+    expect(duration).toBeLessThan(50); // Doit s'exécuter en quelques millisecondes
+  });
+
+  it('consomme les autres ouvertures de chaînes de contrôle non terminées', () => {
+    for (const opener of ['\x1bP', '\x1bX', '\x1b^', '\x1b_', '\x90', '\x98', '\x9d', '\x9e', '\x9f']) {
+      expect(sanitizeTerminalText(opener + 'A'.repeat(10000))).toBe('');
+    }
+  });
+
+  it('consomme les chaînes de contrôle SOS terminées', () => {
+    // 7-bit SOS avec ST 7-bit et BEL
+    expect(sanitizeTerminalText('avant\x1bXpayload_sos\x1b\\apres')).toBe('avantapres');
+    expect(sanitizeTerminalText('avant\x1bXpayload_sos\x07apres')).toBe('avantapres');
+    // 8-bit SOS avec ST 8-bit (\x9c)
+    expect(sanitizeTerminalText('avant\x98payload_sos\x9capres')).toBe('avantapres');
+  });
+
+  it('préserve les sauts de ligne et les tabulations', () => {
+    expect(sanitizeTerminalText('a\nb\tc\rd')).toBe('a\nb\tcd');
   });
 });

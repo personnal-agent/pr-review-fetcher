@@ -21,21 +21,112 @@ const ANSI = {
 
 /**
  * Neutralise les séquences d'échappement terminal (CSI, OSC, APC, etc.)
- * et les caractères de contrôle non imprimables (CWE-150) provenant de données de PR non fiables.
+ * et les caractères de contrôle non imprimables (CWE-150, CWE-400).
+ * Implémenté via un parseur linéaire O(N) sans regex ni backtracking.
  */
 export function sanitizeTerminalText(input: string): string {
   if (!input) return '';
-  return input
-    // Séquences OSC (Operating System Command, liens \x1b]8;;url\x07 ou presse-papiers \x1b]52;...\x07)
-    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '')
-    // Séquences DCS, APC, PM
-    .replace(/\x1b[P^_][\s\S]*?(?:\x07|\x1b\\)/g, '')
-    // Séquences CSI (Control Sequence Introducer, styles/couleurs/curseur \x1b[...)
-    .replace(/\x1b\[[0-9:;<=>?]*[ -/]*[@-~]/g, '')
-    // Autres séquences d'échappement 2-octets
-    .replace(/\x1b[@-Z\\-_]/g, '')
-    // Caractères de contrôle non imprimables (conserver \n et \t)
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
+  const len = input.length;
+  let out = '';
+  let i = 0;
+
+  while (i < len) {
+    const code = input.charCodeAt(i);
+
+    // 1. Séquences d'échappement 7-bit introduites par ESC (\x1b)
+    if (code === 0x1b) {
+      i++;
+      if (i >= len) break;
+      const next = input.charCodeAt(i);
+
+      // CSI: ESC [ ... terminé par un octet entre 0x40 et 0x7E (@ à ~)
+      if (next === 0x5b) {
+        i++;
+        while (i < len && input.charCodeAt(i) >= 0x20 && input.charCodeAt(i) <= 0x3f) {
+          i++;
+        }
+        if (i < len && input.charCodeAt(i) >= 0x40 && input.charCodeAt(i) <= 0x7e) {
+          i++;
+        }
+        continue;
+      }
+
+      // OSC (]), DCS (P), SOS (X), PM (^), APC (_)
+      if (next === 0x5d || next === 0x50 || next === 0x58 || next === 0x5e || next === 0x5f) {
+        i++;
+        while (i < len) {
+          const c = input.charCodeAt(i);
+          if (c === 0x07 || c === 0x9c) {
+            i++;
+            break;
+          }
+          if (c === 0x1b && i + 1 < len && input.charCodeAt(i + 1) === 0x5c) {
+            i += 2;
+            break;
+          }
+          i++;
+        }
+        continue;
+      }
+
+      // Autres échappements 2-octets
+      if (next >= 0x40 && next <= 0x5f) {
+        i++;
+        continue;
+      }
+
+      continue;
+    }
+
+    // 2. Séquences 8-bit C1
+    // CSI 8-bit (\x9b)
+    if (code === 0x9b) {
+      i++;
+      while (i < len && input.charCodeAt(i) >= 0x20 && input.charCodeAt(i) <= 0x3f) {
+        i++;
+      }
+      if (i < len && input.charCodeAt(i) >= 0x40 && input.charCodeAt(i) <= 0x7e) {
+        i++;
+      }
+      continue;
+    }
+
+    // OSC (\x9d), DCS (\x90), SOS (\x98), PM (\x9e), APC (\x9f) 8-bit
+    if (code === 0x9d || code === 0x90 || code === 0x98 || code === 0x9e || code === 0x9f) {
+      i++;
+      while (i < len) {
+        const c = input.charCodeAt(i);
+        if (c === 0x07 || c === 0x9c) {
+          i++;
+          break;
+        }
+        if (c === 0x1b && i + 1 < len && input.charCodeAt(i + 1) === 0x5c) {
+          i += 2;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // 3. Préservation explicite de \n et \t
+    if (code === 0x0a || code === 0x09) {
+      out += input[i];
+      i++;
+      continue;
+    }
+
+    // 4. Élimination des contrôles C0 (\x00-\x1f dont \r) et C1 (\x7f-\x9f)
+    if ((code >= 0x00 && code <= 0x1f) || (code >= 0x7f && code <= 0x9f)) {
+      i++;
+      continue;
+    }
+
+    out += input[i];
+    i++;
+  }
+
+  return out;
 }
 
 function formatSeverityBadge(severity?: string): string {
